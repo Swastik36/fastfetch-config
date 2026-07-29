@@ -5,30 +5,95 @@
 # 1. Full Fastfetch draw on startup and terminal window resize (SIGWINCH trap)
 # 2. Ultra-fast In-Place ANSI Cursor Repositioning for dynamic metrics (0 screen flicker)
 # 3. Dynamic metrics updated: Time Badge, Uptime, CPU Usage, GPU Usage, Memory, Battery
+# 4. Dynamic row/column detection - automatically adapts to any terminal height/font/config
 
 config_preset=""
 logo_mode="default"
+extra_args=()
+
+tput civis 2>/dev/null
+trap 'tput cnorm 2>/dev/null; clear; exit 0' INT TERM EXIT
 
 for arg in "$@"; do
-    if [ "$arg" = "-ex" ]; then
+    if [ "$arg" = "-ex" ] || [ "$arg" = "--ex" ]; then
         config_preset="--config ~/.local/share/fastfetch/presets/ex.jsonc"
         logo_mode="ex"
+    else
+        extra_args+=("$arg")
     fi
 done
 
-# Signal handler for window resizing (SIGWINCH)
-redraw_full() {
-    printf "\033[H\033[J"
-    command fastfetch $config_preset "$@"
+uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""
+clock_row=""; clock_col=17; total_rows=19
+value_col=68
+esc=$(printf '\x1b')
+
+# Draw fastfetch directly to terminal (full native colors), then scan a
+# silent second run to discover the exact row/column of every dynamic field.
+scan_layout() {
+    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""
+    clock_row=""; clock_col=17; total_rows=19
+    value_col=68
+
+    # Silent capture for row scanning only (not displayed)
+    mapfile -t lines < <(command fastfetch $config_preset "${extra_args[@]}" 2>/dev/null)
+
+    local sep=" ➜  "
+    local col_detected=false
+
+    for i in "${!lines[@]}"; do
+        local line="${lines[$i]}"
+        local clean
+        clean=$(printf "%s" "$line" | sed "s/${esc}\[[0-9;]*[a-zA-Z]//g")
+
+        if [[ "$clean" == *"├ Uptime"* ]]; then
+            uptime_row=$((i + 1))
+        fi
+        if [[ "$clean" == *"│ └ Core"* ]]; then
+            if [ -z "$cpu_core_row" ]; then
+                cpu_core_row=$((i + 1))
+            elif [ -z "$gpu_core_row" ]; then
+                gpu_core_row=$((i + 1))
+            fi
+        fi
+        if [[ "$clean" == *"├ Memory"* ]]; then
+            mem_row=$((i + 1))
+        fi
+        if [[ "$clean" == *"└ Battery"* ]]; then
+            bat_row=$((i + 1))
+        fi
+        if [[ "$clean" == *"🕒"* ]]; then
+            clock_row=$((i + 1))
+            local before_clock="${clean%%🕒*}"
+            clock_col=$(( ${#before_clock} + 1 ))
+        fi
+
+        if ! $col_detected; then
+            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]]; then
+                local prefix="${clean%%${sep}*}"
+                if [ "$prefix" != "$clean" ]; then
+                    value_col=$(( ${#prefix} + ${#sep} + 1 ))
+                    col_detected=true
+                fi
+            fi
+        fi
+    done
+    total_rows=${#lines[@]}
 }
 
-# Trap terminal resize signal (SIGWINCH) to trigger a full clean redraw
+redraw_full() {
+    printf "\033[H\033[J"
+    # Draw directly to the terminal — preserves ALL native fastfetch colors
+    # (keyColor, outputColor, bar colors, command ANSI output)
+    command fastfetch $config_preset "${extra_args[@]}" 2>/dev/null
+    # Then scan a second run to discover row positions
+    scan_layout
+}
+
 trap 'redraw_full' SIGWINCH
 
-# Initial full dashboard draw
 redraw_full
 
-# Initialize CPU proc stat baseline
 read c u n s i w ir soft st g gn < /proc/stat
 t1=$((u+n+s+i+w+ir+soft+st))
 i1=$((i+w))
@@ -36,10 +101,8 @@ i1=$((i+w))
 while true; do
     sleep 1
 
-    # 1. Current Time
     now=$(date +'%H:%M:%S')
 
-    # 2. Uptime
     uptime_raw=$(cat /proc/uptime 2>/dev/null | awk '{print $1}')
     up_secs=${uptime_raw%.*}
     if [ -n "$up_secs" ]; then
@@ -54,7 +117,6 @@ while true; do
         uptime_str="N/A"
     fi
 
-    # 3. CPU Usage (Calculated over the 1-second sleep interval with ZERO extra delay)
     read c u n s i w ir soft st g gn < /proc/stat
     t2=$((u+n+s+i+w+ir+soft+st))
     i2=$((i+w))
@@ -73,7 +135,6 @@ while true; do
     cpu_bar=$(printf '█%.0s' $(seq 1 $cpu_filled 2>/dev/null))
     cpu_ebar=$(printf '░%.0s' $(seq 1 $cpu_empty 2>/dev/null))
 
-    # 4. GPU Usage
     gpu_act=$(cat /sys/class/drm/card*/gt/gt0/rps_act_freq_mhz 2>/dev/null | head -n1 || echo 0)
     gpu_max=$(cat /sys/class/drm/card*/gt/gt0/rps_max_freq_mhz 2>/dev/null | head -n1 || echo 1300)
     [ -z "$gpu_act" ] && gpu_act=0
@@ -85,7 +146,6 @@ while true; do
     gpu_bar=$(printf '█%.0s' $(seq 1 $gpu_filled 2>/dev/null))
     gpu_ebar=$(printf '░%.0s' $(seq 1 $gpu_empty 2>/dev/null))
 
-    # 5. Memory Usage
     mem_total_kb=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
     mem_avail_kb=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)
     if [ -n "$mem_total_kb" ] && [ -n "$mem_avail_kb" ]; then
@@ -98,10 +158,23 @@ while true; do
     fi
     mem_filled=$(( mem_pct * 8 / 100 ))
     mem_empty=$(( 8 - mem_filled ))
-    mem_bar=$(printf '█%.0s' $(seq 1 $mem_filled 2>/dev/null))
-    mem_ebar=$(printf '░%.0s' $(seq 1 $mem_empty 2>/dev/null))
+    # Build gradient-colored bar matching fastfetch native output:
+    # green (≤50%), yellow (51-75%), red (>75%) for filled; white for empty
+    mem_bar=""
+    for ((b=1; b<=mem_filled; b++)); do
+        seg_pct=$(( b * 100 / 8 ))
+        if [ "$seg_pct" -le 50 ]; then
+            mem_bar="${mem_bar}\033[32m█"
+        elif [ "$seg_pct" -le 75 ]; then
+            mem_bar="${mem_bar}\033[93m█"
+        else
+            mem_bar="${mem_bar}\033[91m█"
+        fi
+    done
+    for ((b=1; b<=mem_empty; b++)); do
+        mem_bar="${mem_bar}\033[97m░"
+    done
 
-    # 6. Battery Status
     bat_cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo 0)
     bat_ac=$(cat /sys/class/power_supply/A*/online 2>/dev/null || cat /sys/class/power_supply/ADP*/online 2>/dev/null)
     bat_filled=$(( bat_cap * 8 / 100 ))
@@ -114,29 +187,29 @@ while true; do
         bat_str="\033[38;5;208m[ ${bat_bar}${bat_ebar} ] (${bat_cap}%) [DC!]\033[0m"
     fi
 
-    # Batch ANSI Cursor Update: Position cursor directly to dynamic cell coordinates
-    # Time Badge (Row 15)
-    if [ "$logo_mode" = "ex" ]; then
-        printf "\033[15;19H\033[1;35m🕒 [ %s ]\033[0m" "$now"
-    else
-        printf "\033[15;17H\033[1;36m🕒 [ %s ]\033[0m" "$now"
+    # Time Badge (dynamically detected row + column)
+    if [ -n "$clock_row" ]; then
+        if [ "$logo_mode" = "ex" ]; then
+            printf "\033[%d;%dH\033[1;35m🕒 [ %s ]\033[0m" "$clock_row" "$clock_col" "$now"
+        else
+            printf "\033[%d;%dH\033[1;36m🕒 [ %s ]\033[0m" "$clock_row" "$clock_col" "$now"
+        fi
     fi
 
-    # Uptime (Row 5)
-    printf "\033[5;67H\033[33m%s\033[0m\033[K" "$uptime_str"
+    # Uptime - default color (no yellow), dynamic row + column
+    [ -n "$uptime_row" ] && printf "\033[%d;%dH\033[0m%s\033[0m\033[K" "$uptime_row" "$value_col" "$uptime_str"
 
-    # CPU Core (Row 14)
-    printf "\033[14;67H\033[94m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz"
+    # CPU Core
+    [ -n "$cpu_core_row" ] && printf "\033[%d;%dH\033[94m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$cpu_core_row" "$value_col" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz"
 
-    # GPU Core (Row 16)
-    printf "\033[16;67H\033[95m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$gpu_bar" "$gpu_ebar" "$gpu_usage" "$gpu_ghz"
+    # GPU Core
+    [ -n "$gpu_core_row" ] && printf "\033[%d;%dH\033[95m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$gpu_core_row" "$value_col" "$gpu_bar" "$gpu_ebar" "$gpu_usage" "$gpu_ghz"
 
-    # Memory (Row 17)
-    printf "\033[17;67H\033[96m[ %s%s ] %s GiB / %s GiB (%d%%)\033[0m\033[K" "$mem_bar" "$mem_ebar" "$mem_used_gb" "$mem_total_gb" "$mem_pct"
+    # Memory — gradient bar + bold bright cyan text (matches fastfetch native)
+    [ -n "$mem_row" ] && printf "\033[%d;%dH\033[1;36m\033[97m[ %b\033[97m ]\033[m\033[1;36m %s GiB / %s GiB (%d%%)\033[0m\033[K" "$mem_row" "$value_col" "$mem_bar" "$mem_used_gb" "$mem_total_gb" "$mem_pct"
 
-    # Battery (Row 19)
-    printf "\033[19;67H%b\033[K" "$bat_str"
+    # Battery
+    [ -n "$bat_row" ] && printf "\033[%d;%dH%b\033[K" "$bat_row" "$value_col" "$bat_str"
 
-    # Position cursor cleanly at row 20, col 1
-    printf "\033[20;1H"
+    printf "\033[$((total_rows + 1));1H"
 done
