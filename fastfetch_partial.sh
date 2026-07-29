@@ -16,7 +16,7 @@ trap 'tput cnorm 2>/dev/null; clear; exit 0' INT TERM EXIT
 
 for arg in "$@"; do
     if [ "$arg" = "-ex" ] || [ "$arg" = "--ex" ]; then
-        config_preset="--config ~/.local/share/fastfetch/presets/ex.jsonc"
+        config_preset="--config $HOME/.local/share/fastfetch/presets/ex.jsonc"
         logo_mode="ex"
     else
         extra_args+=("$arg")
