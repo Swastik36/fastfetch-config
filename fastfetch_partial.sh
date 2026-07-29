@@ -115,28 +115,28 @@ while true; do
     fi
 
     # Batch ANSI Cursor Update: Position cursor directly to dynamic cell coordinates
-    # Time Badge
+    # Time Badge (Row 15)
     if [ "$logo_mode" = "ex" ]; then
         printf "\033[15;19H\033[1;35m🕒 [ %s ]\033[0m" "$now"
     else
         printf "\033[15;17H\033[1;36m🕒 [ %s ]\033[0m" "$now"
     fi
 
-    # Uptime
+    # Uptime (Row 5)
     printf "\033[5;67H\033[33m%s\033[0m\033[K" "$uptime_str"
 
-    # CPU Core
-    printf "\033[15;67H\033[94m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz"
+    # CPU Core (Row 14)
+    printf "\033[14;67H\033[94m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz"
 
-    # GPU Core
-    printf "\033[17;67H\033[95m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$gpu_bar" "$gpu_ebar" "$gpu_usage" "$gpu_ghz"
+    # GPU Core (Row 16)
+    printf "\033[16;67H\033[95m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$gpu_bar" "$gpu_ebar" "$gpu_usage" "$gpu_ghz"
 
-    # Memory
-    printf "\033[18;67H\033[96m[ %s%s ] %s GiB / %s GiB (%d%%)\033[0m\033[K" "$mem_bar" "$mem_ebar" "$mem_used_gb" "$mem_total_gb" "$mem_pct"
+    # Memory (Row 17)
+    printf "\033[17;67H\033[96m[ %s%s ] %s GiB / %s GiB (%d%%)\033[0m\033[K" "$mem_bar" "$mem_ebar" "$mem_used_gb" "$mem_total_gb" "$mem_pct"
 
-    # Battery
-    printf "\033[20;67H%b\033[K" "$bat_str"
+    # Battery (Row 19)
+    printf "\033[19;67H%b\033[K" "$bat_str"
 
-    # Hide cursor at row 21, col 1
-    printf "\033[21;1H"
+    # Position cursor cleanly at row 20, col 1
+    printf "\033[20;1H"
 done
