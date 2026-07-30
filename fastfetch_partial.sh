@@ -49,12 +49,11 @@ scan_layout() {
         if [[ "$clean" == *"├ Uptime"* ]]; then
             uptime_row=$((i + 1))
         fi
+        if [[ "$clean" == *"│ ├ Core"* ]]; then
+            cpu_core_row=$((i + 1))
+        fi
         if [[ "$clean" == *"│ └ Core"* ]]; then
-            if [ -z "$cpu_core_row" ]; then
-                cpu_core_row=$((i + 1))
-            elif [ -z "$gpu_core_row" ]; then
-                gpu_core_row=$((i + 1))
-            fi
+            gpu_core_row=$((i + 1))
         fi
         if [[ "$clean" == *"├ Memory"* ]]; then
             mem_row=$((i + 1))
@@ -76,7 +75,7 @@ scan_layout() {
         fi
 
         if ! $col_detected; then
-            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]] || [[ "$clean" == *"├ Network"* ]] || [[ "$clean" == *"│ └ Top"* ]]; then
+            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ ├ Core"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]] || [[ "$clean" == *"├ Network"* ]] || [[ "$clean" == *"│ └ Top"* ]]; then
                 local prefix="${clean%%${sep}*}"
                 if [ "$prefix" != "$clean" ]; then
                     value_col=$(( ${#prefix} + ${#sep} + 1 ))
