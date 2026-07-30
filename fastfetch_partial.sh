@@ -23,7 +23,7 @@ for arg in "$@"; do
     fi
 done
 
-uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
+uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""; top_row=""
 clock_row=""; clock_col=17; total_rows=19
 value_col=68
 esc=$(printf '\x1b')
@@ -31,7 +31,7 @@ esc=$(printf '\x1b')
 # Draw fastfetch directly to terminal (full native colors), then scan a
 # silent second run to discover the exact row/column of every dynamic field.
 scan_layout() {
-    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
+    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""; top_row=""
     clock_row=""; clock_col=17; total_rows=19
     value_col=68
 
@@ -71,9 +71,12 @@ scan_layout() {
         if [[ "$clean" == *"├ Network"* ]]; then
             net_row=$((i + 1))
         fi
+        if [[ "$clean" == *"├ Top"* ]]; then
+            top_row=$((i + 1))
+        fi
 
         if ! $col_detected; then
-            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]] || [[ "$clean" == *"├ Network"* ]]; then
+            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]] || [[ "$clean" == *"├ Network"* ]] || [[ "$clean" == *"├ Top"* ]]; then
                 local prefix="${clean%%${sep}*}"
                 if [ "$prefix" != "$clean" ]; then
                     value_col=$(( ${#prefix} + ${#sep} + 1 ))
@@ -260,6 +263,21 @@ while true; do
         fi
     fi
 
+    # Top CPU consumers (aggregated by command name)
+    top_list=$(ps -eo comm,%cpu --no-headers 2>/dev/null | awk '{
+        comm=$1; cpu=$2
+        if (comm == "bash" || comm == "zsh" || comm == "sh" || comm == "fish" || comm == "dash") next
+        if (comm == "kitty" || comm == "gnome-terminal-" || comm == "alacritty" || comm == "xterm") next
+        if (comm == "tmux" || comm == "screen") next
+        procs[comm] += cpu
+    }
+    END {
+        for (c in procs) print procs[c], c
+    }' | sort -rn | head -3 | while read cpu comm; do
+        printf "%s (%.0f%%) " "$comm" "$cpu"
+    done)
+    top_list=${top_list%% }
+
     # Time Badge (dynamically detected row + column)
     if [ -n "$clock_row" ]; then
         if [ "$logo_mode" = "ex" ]; then
@@ -287,6 +305,9 @@ while true; do
 
     # Network
     [ -n "$net_row" ] && [ -n "$net_iface" ] && printf "\033[%d;%dH\033[93m%s ↓ %s ↑\033[0m\033[K" "$net_row" "$value_col" "$net_rx_str" "$net_tx_str"
+
+    # Top CPU consumers
+    [ -n "$top_row" ] && [ -n "$top_list" ] && printf "\033[%d;%dH\033[0m%s\033[0m\033[K" "$top_row" "$value_col" "$top_list"
 
     printf "\033[$((total_rows + 1));1H"
 done
