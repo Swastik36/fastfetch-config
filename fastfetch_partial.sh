@@ -71,12 +71,12 @@ scan_layout() {
         if [[ "$clean" == *"├ Network"* ]]; then
             net_row=$((i + 1))
         fi
-        if [[ "$clean" == *"├ Top"* ]]; then
+        if [[ "$clean" == *"│ └ Top"* ]]; then
             top_row=$((i + 1))
         fi
 
         if ! $col_detected; then
-            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]] || [[ "$clean" == *"├ Network"* ]] || [[ "$clean" == *"├ Top"* ]]; then
+            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]] || [[ "$clean" == *"├ Network"* ]] || [[ "$clean" == *"│ └ Top"* ]]; then
                 local prefix="${clean%%${sep}*}"
                 if [ "$prefix" != "$clean" ]; then
                     value_col=$(( ${#prefix} + ${#sep} + 1 ))
@@ -264,12 +264,18 @@ while true; do
     fi
 
     # Top CPU consumers (aggregated by command name)
-    top_list=$(ps -eo comm,%cpu --no-headers 2>/dev/null | awk '{
-        comm=$1; cpu=$2
-        if (comm == "bash" || comm == "zsh" || comm == "sh" || comm == "fish" || comm == "dash") next
-        if (comm == "kitty" || comm == "gnome-terminal-" || comm == "alacritty" || comm == "xterm") next
-        if (comm == "tmux" || comm == "screen") next
-        procs[comm] += cpu
+    top_list=$(ps -eo args,%cpu --no-headers 2>/dev/null | awk '{
+        cpu = $NF
+        $NF = ""
+        args = $0
+        gsub(/^[ \t]+|[ \t]+$/, "", args)
+        bin = args
+        gsub(/ .*/, "", bin)
+        gsub(/^.*\//, "", bin)
+        if (bin == "" || bin ~ /^\[.*\]$/) next
+        if (bin == "bash" || bin == "zsh" || bin == "sh" || bin == "fish" || bin == "dash") next
+        if (bin == "kitty" || bin == "tmux" || bin == "screen") next
+        procs[bin] += cpu
     }
     END {
         for (c in procs) print procs[c], c

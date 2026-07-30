@@ -93,6 +93,12 @@
       "text": "read c u n s i w ir soft st g gn < /proc/stat; t1=$((u+n+s+i+w+ir+soft+st)); i1=$((i+w)); sleep 0.05; read c u n s i w ir soft st g gn < /proc/stat; t2=$((u+n+s+i+w+ir+soft+st)); i2=$((i+w)); td=$((t2-t1)); id=$((i2-i1)); [ \"$td\" -gt 0 ] && usage=$(( (td-id)*100/td )) || usage=0; mf=$(sort -nr /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | head -n1 || echo 1200000); ghz=$(awk \"BEGIN {printf \\\"%.2f\\\", $mf/1000000}\"); filled=$(( usage * 8 / 100 )); empty=$(( 8 - filled )); bar=$(printf '█%.0s' $(seq 1 $filled 2>/dev/null)); ebar=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null)); echo \"\\033[94m[ $bar$ebar ] ${usage}% @${ghz}GHz\\033[0m\""
     },
     {
+      "type": "command",
+      "key": " │ └ Top    ",
+      "keyColor": "bright_blue",
+      "text": "echo 'starting...'"
+    },
+    {
       "type": "gpu",
       "key": " ├ GPU     ",
       "keyColor": "bright_magenta",
@@ -132,12 +138,6 @@
       "key": " ├ Network ",
       "keyColor": "yellow",
       "text": "echo '0 B/s ↓ 0 B/s ↑'"
-    },
-    {
-      "type": "command",
-      "key": " ├ Top     ",
-      "keyColor": "cyan",
-      "text": "echo 'starting...'"
     },
     {
       "type": "command",
