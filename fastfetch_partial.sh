@@ -35,8 +35,8 @@ scan_layout() {
     clock_row=""; clock_col=17; total_rows=19
     value_col=68
 
-    # Silent capture for row scanning only (not displayed)
-    mapfile -t lines < <(command fastfetch $config_preset "${extra_args[@]}" 2>/dev/null)
+    # Silent TTY capture for row scanning only (matches initial display 100%)
+    mapfile -t lines < <(script -qc "command fastfetch $config_preset ${extra_args[*]}" /dev/null 2>/dev/null | tr -d '\r')
 
     local sep=" ➜  "
     local col_detected=false
