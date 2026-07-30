@@ -2,10 +2,10 @@
 
 # Fastfetch Partial Line Update Engine
 # Features:
-# 1. Single-Pass Execution: fastfetch runs ONCE on startup/resize (Instant ~60ms startup)
-# 2. 100% Guaranteed Row Alignment: scans the exact lines array printed to the terminal
-# 3. Ultra-fast In-Place ANSI Cursor Repositioning for dynamic metrics (0 screen flicker)
-# 4. Dynamic metrics updated: Time Badge, Uptime, CPU Usage, GPU Usage, Memory, Battery, Network
+# 1. Full Fastfetch draw on startup and terminal window resize (SIGWINCH trap)
+# 2. Ultra-fast In-Place ANSI Cursor Repositioning for dynamic metrics (0 screen flicker)
+# 3. Dynamic metrics updated: Time Badge, Uptime, CPU Usage, GPU Usage, Memory, Battery
+# 4. Dynamic row/column detection - automatically adapts to any terminal height/font/config
 
 config_preset=""
 logo_mode="default"
@@ -23,25 +23,22 @@ for arg in "$@"; do
     fi
 done
 
-    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
-clock_row=""; clock_col=17; total_rows=22
+uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
+clock_row=""; clock_col=17; total_rows=19
 value_col=68
 esc=$(printf '\x1b')
 
-# Single-pass display & line scanner
-redraw_full() {
-    printf "\033[H\033[J"
-    
-    # 1. Capture TTY fastfetch output ONCE into array
-    mapfile -t lines < <(script -qc "command fastfetch $config_preset ${extra_args[*]}" /dev/null 2>/dev/null | tr -d '\r')
-    
-    # 2. Print output directly to terminal (Instant display)
-    printf "%s\n" "${lines[@]}"
-
-    # 3. Scan the EXACT SAME PRINTED LINES for row/col positions
-uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
-    clock_row=""; clock_col=17; total_rows=${#lines[@]}
+# Draw fastfetch directly to terminal (full native colors), then scan a
+# silent second run to discover the exact row/column of every dynamic field.
+scan_layout() {
+    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
+    clock_row=""; clock_col=17; total_rows=19
     value_col=68
+
+    # Silent capture for row scanning only (not displayed)
+    mapfile -t lines < <(command fastfetch $config_preset "${extra_args[@]}" 2>/dev/null)
+
+    local sep=" ➜  "
     local col_detected=false
 
     for i in "${!lines[@]}"; do
@@ -49,37 +46,57 @@ uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row
         local clean
         clean=$(printf "%s" "$line" | sed "s/${esc}\[[0-9;]*[a-zA-Z]//g")
 
-        if [[ "$clean" == *"Uptime"* ]]; then uptime_row=$((i + 1)); fi
-        if [[ "$clean" == *"└ Core"* ]]; then
+        if [[ "$clean" == *"├ Uptime"* ]]; then
+            uptime_row=$((i + 1))
+        fi
+        if [[ "$clean" == *"│ └ Core"* ]]; then
             if [ -z "$cpu_core_row" ]; then
                 cpu_core_row=$((i + 1))
             elif [ -z "$gpu_core_row" ]; then
                 gpu_core_row=$((i + 1))
             fi
         fi
-        if [[ "$clean" == *"Memory"* ]]; then mem_row=$((i + 1)); fi
-        if [[ "$clean" == *"Network"* ]]; then net_row=$((i + 1)); fi
-        if [[ "$clean" == *"Battery"* ]]; then bat_row=$((i + 1)); fi
+        if [[ "$clean" == *"├ Memory"* ]]; then
+            mem_row=$((i + 1))
+        fi
+        if [[ "$clean" == *"└ Battery"* ]]; then
+            bat_row=$((i + 1))
+        fi
         if [[ "$clean" == *"🕒"* ]]; then
             clock_row=$((i + 1))
             local before_clock="${clean%%🕒*}"
             clock_col=$(( ${#before_clock} + 1 ))
         fi
 
+        if [[ "$clean" == *"├ Network"* ]]; then
+            net_row=$((i + 1))
+        fi
+
         if ! $col_detected; then
-            if [[ "$clean" == *"➜"* ]]; then
-                local prefix="${clean%%➜*}"
-                value_col=$(( ${#prefix} + 4 ))
-                col_detected=true
+            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]] || [[ "$clean" == *"├ Network"* ]]; then
+                local prefix="${clean%%${sep}*}"
+                if [ "$prefix" != "$clean" ]; then
+                    value_col=$(( ${#prefix} + ${#sep} + 1 ))
+                    col_detected=true
+                fi
             fi
         fi
     done
+    total_rows=${#lines[@]}
+}
 
+redraw_full() {
+    printf "\033[H\033[J"
+    # Draw directly to the terminal — preserves ALL native fastfetch colors
+    # (keyColor, outputColor, bar colors, command ANSI output)
+    command fastfetch $config_preset "${extra_args[@]}" 2>/dev/null
+    # Then scan a second run to discover row positions
+    scan_layout
     # Re-detect active network interface
     net_iface=$(awk 'NR>2 {if ($1 != "lo:" && $2+0 > 0) {gsub(":", "", $1); print $1; exit}}' /proc/net/dev)
     if [ -n "$net_iface" ]; then
-        net_rx1=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
-        net_tx1=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
+net_rx1=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
+net_tx1=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
     fi
 }
 
@@ -182,6 +199,7 @@ while true; do
     mem_filled=$(( mem_pct * 8 / 100 ))
     mem_empty=$(( 8 - mem_filled ))
     # Build gradient-colored bar matching fastfetch native output:
+    # green (≤50%), yellow (51-75%), red (>75%) for filled; white for empty
     mem_bar=""
     for ((b=1; b<=mem_filled; b++)); do
         seg_pct=$(( b * 100 / 8 ))
