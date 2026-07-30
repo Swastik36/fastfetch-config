@@ -94,7 +94,7 @@
     },
     {
       "type": "command",
-      "key": " │ └ Top    ",
+      "key": " │ └ Top   ",
       "keyColor": "bright_blue",
       "text": "echo 'starting...'"
     },
