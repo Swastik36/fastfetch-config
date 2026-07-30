@@ -129,9 +129,15 @@
     },
     {
       "type": "command",
+      "key": " ├ Network ",
+      "keyColor": "yellow",
+      "text": "echo '0 B/s ↓ 0 B/s ↑'"
+    },
+    {
+      "type": "command",
       "key": " └ Battery ",
       "keyColor": "green",
-      "text": "cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo 0); online=$(cat /sys/class/power_supply/A*/online 2>/dev/null || cat /sys/class/power_supply/ADP*/online 2>/dev/null); filled=$(( cap * 8 / 100 )); empty=$(( 8 - filled )); bar=$(printf '█%.0s' $(seq 1 $filled 2>/dev/null)); ebar=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null)); if [ \"$online\" = \"1\" ]; then echo \"\\033[32m[ $bar$ebar ] ($cap%) [AC]\\033[0m\"; else echo \"\\033[38;5;208m[ $bar$ebar ] ($cap%) [DC!]\\033[0m\"; fi"
+      "text": "cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo 0); online=$(cat /sys/class/power_supply/A*/online 2>/dev/null || cat /sys/class/power_supply/ADP*/online 2>/dev/null); filled=$(( cap * 8 / 100 )); empty=$(( 8 - filled )); bar=$(printf '█%.0s' $(seq 1 $filled 2>/dev/null)); ebar=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null)); plan=$(powerprofilesctl get 2>/dev/null || echo \"balanced\"); case \"$plan\" in performance) tag=\"Performance\";; power-saver) tag=\"Power Saver\";; balanced) tag=\"Balanced\";; *) tag=\"$plan\";; esac; if [ \"$online\" = \"1\" ]; then echo \"\\033[32m[ $bar$ebar ] ($cap%) [AC] [$tag]\\033[0m\"; else echo \"\\033[38;5;208m[ $bar$ebar ] ($cap%) [DC!] [$tag]\\033[0m\"; fi"
     }
   ]
 }

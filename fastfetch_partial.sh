@@ -23,7 +23,7 @@ for arg in "$@"; do
     fi
 done
 
-uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""
+uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
 clock_row=""; clock_col=17; total_rows=19
 value_col=68
 esc=$(printf '\x1b')
@@ -31,7 +31,7 @@ esc=$(printf '\x1b')
 # Draw fastfetch directly to terminal (full native colors), then scan a
 # silent second run to discover the exact row/column of every dynamic field.
 scan_layout() {
-    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""
+    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
     clock_row=""; clock_col=17; total_rows=19
     value_col=68
 
@@ -68,8 +68,12 @@ scan_layout() {
             clock_col=$(( ${#before_clock} + 1 ))
         fi
 
+        if [[ "$clean" == *"├ Network"* ]]; then
+            net_row=$((i + 1))
+        fi
+
         if ! $col_detected; then
-            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]]; then
+            if [[ "$clean" == *"├ Uptime"* ]] || [[ "$clean" == *"│ └ Core"* ]] || [[ "$clean" == *"├ Memory"* ]] || [[ "$clean" == *"└ Battery"* ]] || [[ "$clean" == *"├ Network"* ]]; then
                 local prefix="${clean%%${sep}*}"
                 if [ "$prefix" != "$clean" ]; then
                     value_col=$(( ${#prefix} + ${#sep} + 1 ))
@@ -88,6 +92,12 @@ redraw_full() {
     command fastfetch $config_preset "${extra_args[@]}" 2>/dev/null
     # Then scan a second run to discover row positions
     scan_layout
+    # Re-detect active network interface
+    net_iface=$(awk 'NR>2 {if ($1 != "lo:" && $2+0 > 0) {gsub(":", "", $1); print $1; exit}}' /proc/net/dev)
+    if [ -n "$net_iface" ]; then
+net_rx1=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
+net_tx1=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
+    fi
 }
 
 trap 'redraw_full' SIGWINCH
@@ -97,6 +107,12 @@ redraw_full
 read c u n s i w ir soft st g gn < /proc/stat
 t1=$((u+n+s+i+w+ir+soft+st))
 i1=$((i+w))
+
+net_iface=$(awk 'NR>2 {if ($1 != "lo:" && $2+0 > 0) {gsub(":", "", $1); print $1; exit}}' /proc/net/dev)
+if [ -n "$net_iface" ]; then
+    net_rx1=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
+    net_tx1=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
+fi
 
 while true; do
     sleep 1
@@ -134,6 +150,30 @@ while true; do
     cpu_empty=$(( 8 - cpu_filled ))
     cpu_bar=$(printf '█%.0s' $(seq 1 $cpu_filled 2>/dev/null))
     cpu_ebar=$(printf '░%.0s' $(seq 1 $cpu_empty 2>/dev/null))
+
+    temp=$(sensors 2>/dev/null | grep 'Package id 0' | head -1 | sed 's/[^+]*+//; s/°C.*//; s/\..*//')
+    if [ -z "$temp" ]; then
+        for z in /sys/class/thermal/thermal_zone*/temp; do
+            t=$(cat "$z" 2>/dev/null)
+            if [ -n "$t" ] && [ "$t" -gt 10000 ]; then
+                temp=$(( t / 1000 ))
+                break
+            fi
+        done
+    fi
+    [ -z "$temp" ] && temp=0
+
+    if [ "$temp" -le 50 ]; then
+        temp_color="34"
+    elif [ "$temp" -le 70 ]; then
+        temp_color="32"
+    elif [ "$temp" -le 80 ]; then
+        temp_color="93"
+    elif [ "$temp" -le 90 ]; then
+        temp_color="38;5;208"
+    else
+        temp_color="91"
+    fi
 
     gpu_act=$(cat /sys/class/drm/card*/gt/gt0/rps_act_freq_mhz 2>/dev/null | head -n1 || echo 0)
     gpu_max=$(cat /sys/class/drm/card*/gt/gt0/rps_max_freq_mhz 2>/dev/null | head -n1 || echo 1300)
@@ -181,10 +221,43 @@ while true; do
     bat_empty=$(( 8 - bat_filled ))
     bat_bar=$(printf '█%.0s' $(seq 1 $bat_filled 2>/dev/null))
     bat_ebar=$(printf '░%.0s' $(seq 1 $bat_empty 2>/dev/null))
+    power_plan=$(powerprofilesctl get 2>/dev/null || echo "balanced")
+    case "$power_plan" in
+        performance) plan_tag="Performance" ;;
+        power-saver) plan_tag="Power Saver" ;;
+        balanced)    plan_tag="Balanced" ;;
+        *)           plan_tag="$power_plan" ;;
+    esac
     if [ "$bat_ac" = "1" ]; then
-        bat_str="\033[32m[ ${bat_bar}${bat_ebar} ] (${bat_cap}%) [AC]\033[0m"
+        bat_str="\033[32m[ ${bat_bar}${bat_ebar} ] (${bat_cap}%) [AC] [${plan_tag}]\033[0m"
     else
-        bat_str="\033[38;5;208m[ ${bat_bar}${bat_ebar} ] (${bat_cap}%) [DC!]\033[0m"
+        bat_str="\033[38;5;208m[ ${bat_bar}${bat_ebar} ] (${bat_cap}%) [DC!] [${plan_tag}]\033[0m"
+    fi
+
+    # Network speed
+    if [ -n "$net_iface" ]; then
+        net_rx2=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
+        net_tx2=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
+        net_rx_speed=$(( net_rx2 - net_rx1 ))
+        net_tx_speed=$(( net_tx2 - net_tx1 ))
+        net_rx1=$net_rx2
+        net_tx1=$net_tx2
+
+        if [ "$net_rx_speed" -ge 1000000 ]; then
+            net_rx_str=$(awk "BEGIN {printf \"%.1f MB/s\", $net_rx_speed/1000000}")
+        elif [ "$net_rx_speed" -ge 1000 ]; then
+            net_rx_str=$(awk "BEGIN {printf \"%.0f KB/s\", $net_rx_speed/1000}")
+        else
+            net_rx_str="${net_rx_speed} B/s"
+        fi
+
+        if [ "$net_tx_speed" -ge 1000000 ]; then
+            net_tx_str=$(awk "BEGIN {printf \"%.1f MB/s\", $net_tx_speed/1000000}")
+        elif [ "$net_tx_speed" -ge 1000 ]; then
+            net_tx_str=$(awk "BEGIN {printf \"%.0f KB/s\", $net_tx_speed/1000}")
+        else
+            net_tx_str="${net_tx_speed} B/s"
+        fi
     fi
 
     # Time Badge (dynamically detected row + column)
@@ -200,7 +273,8 @@ while true; do
     [ -n "$uptime_row" ] && printf "\033[%d;%dH\033[0m%s\033[0m\033[K" "$uptime_row" "$value_col" "$uptime_str"
 
     # CPU Core
-    [ -n "$cpu_core_row" ] && printf "\033[%d;%dH\033[94m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$cpu_core_row" "$value_col" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz"
+    [ -n "$cpu_core_row" ] && [ "$temp" -gt 0 ] && printf "\033[%d;%dH\033[94m[ %s%s ] %d%% @%sGHz \033[%sm%s°C\033[0m\033[K" "$cpu_core_row" "$value_col" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz" "$temp_color" "$temp"
+    [ -n "$cpu_core_row" ] && [ "$temp" -eq 0 ] && printf "\033[%d;%dH\033[94m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$cpu_core_row" "$value_col" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz"
 
     # GPU Core
     [ -n "$gpu_core_row" ] && printf "\033[%d;%dH\033[95m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$gpu_core_row" "$value_col" "$gpu_bar" "$gpu_ebar" "$gpu_usage" "$gpu_ghz"
@@ -210,6 +284,9 @@ while true; do
 
     # Battery
     [ -n "$bat_row" ] && printf "\033[%d;%dH%b\033[K" "$bat_row" "$value_col" "$bat_str"
+
+    # Network
+    [ -n "$net_row" ] && [ -n "$net_iface" ] && printf "\033[%d;%dH\033[93m%s ↓ %s ↑\033[0m\033[K" "$net_row" "$value_col" "$net_rx_str" "$net_tx_str"
 
     printf "\033[$((total_rows + 1));1H"
 done
