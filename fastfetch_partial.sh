@@ -263,10 +263,11 @@ while true; do
     fi
 
     # Top CPU consumers (aggregated by command name)
-    top_list=$(ps -eo args,%cpu --no-headers 2>/dev/null | awk '{
-        cpu = $NF
-        $NF = ""
+    top_list=$(ps -eo %cpu,command 2>/dev/null | awk '
+    NR>1 {
+        cpu = $1 + 0
         args = $0
+        sub(/^[ \t]*[0-9.]+[ \t]+/, "", args)
         gsub(/^[ \t]+|[ \t]+$/, "", args)
         bin = args
         gsub(/ .*/, "", bin)
@@ -278,7 +279,7 @@ while true; do
     }
     END {
         for (c in procs) print procs[c], c
-    }' | sort -rn | head -3 | while read cpu comm; do
+    }' | sort -rn | head -2 | while read cpu comm; do
         printf "%s (%.0f%%) " "$comm" "$cpu"
     done)
     top_list=${top_list%% }
