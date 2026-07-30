@@ -5,7 +5,7 @@
 # 1. Single-Pass Execution: fastfetch runs ONCE on startup/resize (Instant ~60ms startup)
 # 2. 100% Guaranteed Row Alignment: scans the exact lines array printed to the terminal
 # 3. Ultra-fast In-Place ANSI Cursor Repositioning for dynamic metrics (0 screen flicker)
-# 4. Dynamic metrics updated: Time Badge, Uptime, CPU Usage, GPU Usage, Memory, Battery, Network, Top Apps
+# 4. Dynamic metrics updated: Time Badge, Uptime, CPU Usage, GPU Usage, Memory, Battery, Network
 
 config_preset=""
 logo_mode="default"
@@ -23,7 +23,7 @@ for arg in "$@"; do
     fi
 done
 
-uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""; top_row=""
+    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
 clock_row=""; clock_col=17; total_rows=22
 value_col=68
 esc=$(printf '\x1b')
@@ -39,7 +39,7 @@ redraw_full() {
     printf "%s\n" "${lines[@]}"
 
     # 3. Scan the EXACT SAME PRINTED LINES for row/col positions
-    uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""; top_row=""
+uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
     clock_row=""; clock_col=17; total_rows=${#lines[@]}
     value_col=68
     local col_detected=false
@@ -50,9 +50,13 @@ redraw_full() {
         clean=$(printf "%s" "$line" | sed "s/${esc}\[[0-9;]*[a-zA-Z]//g")
 
         if [[ "$clean" == *"Uptime"* ]]; then uptime_row=$((i + 1)); fi
-        if [[ "$clean" == *"├ Core"* ]]; then cpu_core_row=$((i + 1)); fi
-        if [[ "$clean" == *"└ Top"* ]]; then top_row=$((i + 1)); fi
-        if [[ "$clean" == *"└ Core"* ]]; then gpu_core_row=$((i + 1)); fi
+        if [[ "$clean" == *"└ Core"* ]]; then
+            if [ -z "$cpu_core_row" ]; then
+                cpu_core_row=$((i + 1))
+            elif [ -z "$gpu_core_row" ]; then
+                gpu_core_row=$((i + 1))
+            fi
+        fi
         if [[ "$clean" == *"Memory"* ]]; then mem_row=$((i + 1)); fi
         if [[ "$clean" == *"Network"* ]]; then net_row=$((i + 1)); fi
         if [[ "$clean" == *"Battery"* ]]; then bat_row=$((i + 1)); fi
@@ -238,28 +242,6 @@ while true; do
         fi
     fi
 
-    # Top CPU consumers (aggregated by command name)
-    top_list=$(ps -eo %cpu,command 2>/dev/null | awk '
-    NR>1 {
-        cpu = $1 + 0
-        args = $0
-        sub(/^[ \t]*[0-9.]+[ \t]+/, "", args)
-        gsub(/^[ \t]+|[ \t]+$/, "", args)
-        bin = args
-        gsub(/ .*/, "", bin)
-        gsub(/^.*\//, "", bin)
-        if (bin == "" || bin ~ /^\[.*\]$/) next
-        if (bin == "bash" || bin == "zsh" || bin == "sh" || bin == "fish" || bin == "dash") next
-        if (bin == "kitty" || bin == "tmux" || bin == "screen") next
-        procs[bin] += cpu
-    }
-    END {
-        for (c in procs) print procs[c], c
-    }' | sort -rn | head -2 | while read cpu comm; do
-        printf "%s (%.0f%%) " "$comm" "$cpu"
-    done)
-    top_list=${top_list%% }
-
     # Time Badge (dynamically detected row + column)
     if [ -n "$clock_row" ]; then
         if [ "$logo_mode" = "ex" ]; then
@@ -287,9 +269,6 @@ while true; do
 
     # Network
     [ -n "$net_row" ] && [ -n "$net_iface" ] && printf "\033[%d;%dH\033[93m%s ↓ %s ↑\033[0m\033[K" "$net_row" "$value_col" "$net_rx_str" "$net_tx_str"
-
-    # Top CPU consumers
-    [ -n "$top_row" ] && [ -n "$top_list" ] && printf "\033[%d;%dH\033[0m%s\033[0m\033[K" "$top_row" "$value_col" "$top_list"
 
     printf "\033[$((total_rows + 1));1H"
 done
