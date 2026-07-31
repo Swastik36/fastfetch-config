@@ -71,7 +71,7 @@ The detection order matters — both CPU and GPU Core share the same key `" │ 
 ### Git Repo
 - Remote: `https://github.com/Swastik36/fastfetch-config.git`
 - Branch: `main`
-- `~/.config/fastfetch-partial/` is fully self-contained and tracked: engine script, both configs, both logos, `context.md`. The engine always passes `--config` from this dir, so a fresh clone works without manual copies.
+- `~/.config/fastfetch-partial/` is fully self-contained and tracked: engine script, both configs, both logos, `context.md`, `README.md`. The engine always passes `--config` from this dir, so a fresh clone works without manual copies.
 - Legacy `~/.config/fastfetch/` is NOT versioned anymore (its git repo was merged into this one — see `legacy/`). The engine no longer reads anything from it; only bare `fastfetch` and `fastfetch_whole.sh` use those files. Live copies must be edited manually, then re-mirrored into `legacy/`.
 
 ### Known Gotchas
