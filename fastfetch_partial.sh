@@ -7,7 +7,7 @@
 # 3. Dynamic metrics updated: Time Badge, Uptime, CPU Usage, GPU Usage, Memory, Battery
 # 4. Dynamic row/column detection - automatically adapts to any terminal height/font/config
 
-config_preset=""
+config_preset="--config $HOME/.config/fastfetch-partial/config.jsonc"
 logo_mode="default"
 extra_args=()
 
@@ -16,7 +16,7 @@ trap 'tput cnorm 2>/dev/null; clear; exit 0' INT TERM EXIT
 
 for arg in "$@"; do
     if [ "$arg" = "-ex" ] || [ "$arg" = "--ex" ]; then
-        config_preset="--config $HOME/.local/share/fastfetch/presets/ex.jsonc"
+        config_preset="--config $HOME/.config/fastfetch-partial/ex.jsonc"
         logo_mode="ex"
     else
         extra_args+=("$arg")
@@ -36,7 +36,7 @@ scan_layout() {
     value_col=68
 
     # Silent capture for row scanning only (not displayed)
-    mapfile -t lines < <(command fastfetch $config_preset "${extra_args[@]}" 2>/dev/null)
+    mapfile -t lines < <(command fastfetch $config_preset --pipe false "${extra_args[@]}" 2>/dev/null)
 
     local sep=" ➜  "
     local col_detected=false
@@ -148,8 +148,8 @@ while true; do
     cpu_ghz=$(awk -v f="$cpu_freq_raw" 'BEGIN {printf "%.2f", f/1000000}')
     cpu_filled=$(( cpu_usage * 8 / 100 ))
     cpu_empty=$(( 8 - cpu_filled ))
-    cpu_bar=$(printf '█%.0s' $(seq 1 $cpu_filled 2>/dev/null))
-    cpu_ebar=$(printf '░%.0s' $(seq 1 $cpu_empty 2>/dev/null))
+    cpu_bar=$([ "$cpu_filled" -gt 0 ] && printf '█%.0s' $(seq 1 $cpu_filled 2>/dev/null) || echo "")
+    cpu_ebar=$([ "$cpu_empty" -gt 0 ] && printf '░%.0s' $(seq 1 $cpu_empty 2>/dev/null) || echo "")
 
     temp=$(sensors 2>/dev/null | grep 'Package id 0' | head -1 | sed 's/[^+]*+//; s/°C.*//; s/\..*//')
     if [ -z "$temp" ]; then
@@ -183,8 +183,8 @@ while true; do
     gpu_ghz=$(awk -v f="$gpu_act" 'BEGIN {printf "%.2f", f/1000}')
     gpu_filled=$(( gpu_usage * 8 / 100 ))
     gpu_empty=$(( 8 - gpu_filled ))
-    gpu_bar=$(printf '█%.0s' $(seq 1 $gpu_filled 2>/dev/null))
-    gpu_ebar=$(printf '░%.0s' $(seq 1 $gpu_empty 2>/dev/null))
+    gpu_bar=$([ "$gpu_filled" -gt 0 ] && printf '█%.0s' $(seq 1 $gpu_filled 2>/dev/null) || echo "")
+    gpu_ebar=$([ "$gpu_empty" -gt 0 ] && printf '░%.0s' $(seq 1 $gpu_empty 2>/dev/null) || echo "")
 
     mem_total_kb=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
     mem_avail_kb=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)
@@ -219,8 +219,8 @@ while true; do
     bat_ac=$(cat /sys/class/power_supply/A*/online 2>/dev/null || cat /sys/class/power_supply/ADP*/online 2>/dev/null)
     bat_filled=$(( bat_cap * 8 / 100 ))
     bat_empty=$(( 8 - bat_filled ))
-    bat_bar=$(printf '█%.0s' $(seq 1 $bat_filled 2>/dev/null))
-    bat_ebar=$(printf '░%.0s' $(seq 1 $bat_empty 2>/dev/null))
+    bat_bar=$([ "$bat_filled" -gt 0 ] && printf '█%.0s' $(seq 1 $bat_filled 2>/dev/null) || echo "")
+    bat_ebar=$([ "$bat_empty" -gt 0 ] && printf '░%.0s' $(seq 1 $bat_empty 2>/dev/null) || echo "")
     power_plan=$(powerprofilesctl get 2>/dev/null || echo "balanced")
     case "$power_plan" in
         performance) plan_tag="Performance" ;;
