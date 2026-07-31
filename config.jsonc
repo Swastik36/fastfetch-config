@@ -90,7 +90,7 @@
       "type": "command",
       "key": " │ └ Core  ",
       "keyColor": "bright_blue",
-      "text": "read c u n s i w ir soft st g gn < /proc/stat; t1=$((u+n+s+i+w+ir+soft+st)); i1=$((i+w)); sleep 0.05; read c u n s i w ir soft st g gn < /proc/stat; t2=$((u+n+s+i+w+ir+soft+st)); i2=$((i+w)); td=$((t2-t1)); id=$((i2-i1)); [ \"$td\" -gt 0 ] && usage=$(( (td-id)*100/td )) || usage=0; mf=$(sort -nr /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | head -n1 || echo 1200000); ghz=$(awk \"BEGIN {printf \\\"%.2f\\\", $mf/1000000}\"); filled=$(( usage * 8 / 100 )); empty=$(( 8 - filled )); bar=$(printf '█%.0s' $(seq 1 $filled 2>/dev/null)); ebar=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null)); echo \"\\033[94m[ $bar$ebar ] ${usage}% @${ghz}GHz\\033[0m\""
+      "text": "read c u n s i w ir soft st g gn < /proc/stat; t1=$((u+n+s+i+w+ir+soft+st)); i1=$((i+w)); sleep 0.05; read c u n s i w ir soft st g gn < /proc/stat; t2=$((u+n+s+i+w+ir+soft+st)); i2=$((i+w)); td=$((t2-t1)); id=$((i2-i1)); [ \"$td\" -gt 0 ] && usage=$(( (td-id)*100/td )) || usage=0; mf=$(sort -nr /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | head -n1 || echo 1200000); ghz=$(awk \"BEGIN {printf \\\"%.2f\\\", $mf/1000000}\"); filled=$(( usage * 8 / 100 )); empty=$(( 8 - filled )); bar=$([ \"$filled\" -gt 0 ] && printf '█%.0s' $(seq 1 $filled 2>/dev/null) || echo \"\"); ebar=$([ \"$empty\" -gt 0 ] && printf '░%.0s' $(seq 1 $empty 2>/dev/null) || echo \"\"); echo \"\\033[94m[ $bar$ebar ] ${usage}% @${ghz}GHz\\033[0m\""
     },
     {
       "type": "gpu",
@@ -102,7 +102,7 @@
       "type": "command",
       "key": " │ └ Core  ",
       "keyColor": "bright_magenta",
-      "text": "gpu_act=$(cat /sys/class/drm/card*/gt/gt0/rps_act_freq_mhz 2>/dev/null | head -n1 || echo 0); gpu_max=$(cat /sys/class/drm/card*/gt/gt0/rps_max_freq_mhz 2>/dev/null | head -n1 || echo 1300); [ -z \"$gpu_act\" ] && gpu_act=0; [ -z \"$gpu_max\" ] || [ \"$gpu_max\" -eq 0 ] && gpu_max=1300; gpu_usage=$(( gpu_act * 100 / gpu_max )); gpu_ghz=$(awk \"BEGIN {printf \\\"%.2f\\\", $gpu_act/1000}\"); filled=$(( gpu_usage * 8 / 100 )); empty=$(( 8 - filled )); bar=$(printf '█%.0s' $(seq 1 $filled 2>/dev/null)); ebar=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null)); echo \"\\033[95m[ $bar$ebar ] ${gpu_usage}% @${gpu_ghz}GHz\\033[0m\""
+      "text": "gpu_act=$(cat /sys/class/drm/card*/gt/gt0/rps_act_freq_mhz 2>/dev/null | head -n1 || echo 0); gpu_max=$(cat /sys/class/drm/card*/gt/gt0/rps_max_freq_mhz 2>/dev/null | head -n1 || echo 1300); [ -z \"$gpu_act\" ] && gpu_act=0; [ -z \"$gpu_max\" ] || [ \"$gpu_max\" -eq 0 ] && gpu_max=1300; gpu_usage=$(( gpu_act * 100 / gpu_max )); gpu_ghz=$(awk \"BEGIN {printf \\\"%.2f\\\", $gpu_act/1000}\"); filled=$(( gpu_usage * 8 / 100 )); empty=$(( 8 - filled )); bar=$([ \"$filled\" -gt 0 ] && printf '█%.0s' $(seq 1 $filled 2>/dev/null) || echo \"\"); ebar=$([ \"$empty\" -gt 0 ] && printf '░%.0s' $(seq 1 $empty 2>/dev/null) || echo \"\"); echo \"\\033[95m[ $bar$ebar ] ${gpu_usage}% @${gpu_ghz}GHz\\033[0m\""
     },
     {
       "type": "memory",
@@ -137,7 +137,7 @@
       "type": "command",
       "key": " └ Battery ",
       "keyColor": "green",
-      "text": "cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo 0); online=$(cat /sys/class/power_supply/A*/online 2>/dev/null || cat /sys/class/power_supply/ADP*/online 2>/dev/null); filled=$(( cap * 8 / 100 )); empty=$(( 8 - filled )); bar=$(printf '█%.0s' $(seq 1 $filled 2>/dev/null)); ebar=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null)); plan=$(powerprofilesctl get 2>/dev/null || echo \"balanced\"); case \"$plan\" in performance) tag=\"Performance\";; power-saver) tag=\"Power Saver\";; balanced) tag=\"Balanced\";; *) tag=\"$plan\";; esac; if [ \"$online\" = \"1\" ]; then echo \"\\033[32m[ $bar$ebar ] ($cap%) [AC] [$tag]\\033[0m\"; else echo \"\\033[38;5;208m[ $bar$ebar ] ($cap%) [DC!] [$tag]\\033[0m\"; fi"
+      "text": "cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo 0); online=$(cat /sys/class/power_supply/A*/online 2>/dev/null || cat /sys/class/power_supply/ADP*/online 2>/dev/null); filled=$(( cap * 8 / 100 )); empty=$(( 8 - filled )); bar=$([ \"$filled\" -gt 0 ] && printf '█%.0s' $(seq 1 $filled 2>/dev/null) || echo \"\"); ebar=$([ \"$empty\" -gt 0 ] && printf '░%.0s' $(seq 1 $empty 2>/dev/null) || echo \"\"); plan=$(powerprofilesctl get 2>/dev/null || echo \"balanced\"); case \"$plan\" in performance) tag=\"Performance\";; power-saver) tag=\"Power Saver\";; balanced) tag=\"Balanced\";; *) tag=\"$plan\";; esac; if [ \"$online\" = \"1\" ]; then echo \"\\033[32m[ $bar$ebar ] ($cap%) [AC] [$tag]\\033[0m\"; else echo \"\\033[38;5;208m[ $bar$ebar ] ($cap%) [DC!] [$tag]\\033[0m\"; fi"
     }
   ]
 }

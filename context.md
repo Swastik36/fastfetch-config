@@ -30,7 +30,7 @@
 Without `--pipe false`, fastfetch omits TTY-dependent modules (like Terminal Font) when piped. This makes the piped output have 20 lines while the direct TTY draw has 21 lines, causing ALL row detection to be off by 1 for every field after the font module. The `--pipe false` flag makes the piped output match the TTY draw exactly.
 
 ### seq 1 0 Bar Bug
-In GNU coreutils, `seq 1 0` produces NO output (empty), but `printf '█%.0s'` with zero arguments still prints one `█` because printf repeats the format for each argument — zero arguments means the format literal `█` still prints once. This makes 0% bars show 1 filled block (9 chars total) instead of 0 (8 chars). The fix: guard with `[ "$filled" -gt 0 ] &&` to skip the printf entirely when filled is 0.
+In GNU coreutils, `seq 1 0` produces NO output (empty), but `printf '█%.0s'` with zero arguments still prints one `█` because printf repeats the format for each argument — zero arguments means the format literal `█` still prints once. This makes 0% bars show 1 filled block (9 chars total) instead of 0 (8 chars). The fix: guard with `[ "$filled" -gt 0 ] &&` to skip the printf entirely when filled is 0. This guard must be applied BOTH in the engine AND inside every config `command` module that draws a bar (CPU/GPU Core, Battery) — the configs are what the initial draw shows for ~1s after each redraw.
 
 Same issue applies to the empty-bar side: `seq 1 8` works fine, but needs guarding for symmetry.
 
@@ -93,7 +93,7 @@ The detection order matters — both CPU and GPU Core share the same key `" │ 
 | # | Fix | File |
 |---|-----|------|
 | 1 | `--pipe false` in scan_layout — piped output now matches TTY (21 rows) | `fastfetch_partial.sh:39` |
-| 2 | `[ "$filled" -gt 0 ]` guards on CPU/GPU/Battery bars — always exactly 8 chars | `fastfetch_partial.sh:151,186,222` |
+| 2 | `[ "$filled" -gt 0 ]` guards on CPU/GPU/Battery bars — always exactly 8 chars | `fastfetch_partial.sh:151,186,222` + all 3 configs' command modules (2026-07-31) |
 | 3 | CPU module → command type, strips "Intel(R) Core(TM) ", saves ~22 cols | All 3 configs |
 | 4 | `padding.right` 0 → 3 | All 3 configs |
 | 5 | bashrc: `kitty @ resize-os-window --width 120 --height 35 --unit cells --self` + ANSI `\033[8;35;120t` fallback | `~/.bashrc:139-140` |
