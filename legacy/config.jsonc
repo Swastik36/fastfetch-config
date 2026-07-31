@@ -20,6 +20,10 @@
       "char": {
         "elapsed": "█",
         "total": "░"
+      },
+      "color": {
+        "elapsed": "red",
+        "total": "white"
       }
     }
   },
@@ -108,24 +112,14 @@
       "type": "memory",
       "key": " ├ Memory  ",
       "keyColor": "bright_cyan",
-      "outputColor": "bright_cyan",
-      "bar": {
-        "color": {
-          "elapsed": "bright_cyan"
-        }
-      }
+      "outputColor": "bright_cyan"
     },
     {
       "type": "disk",
       "key": " ├ Disk    ",
       "keyColor": "red",
       "outputColor": "red",
-      "format": "{13} {1} / {2} ({3})",
-      "bar": {
-        "color": {
-          "elapsed": "red"
-        }
-      }
+      "format": "{13} {1} / {2} ({3})"
     },
     {
       "type": "command",
