@@ -6,7 +6,7 @@
 # 2. Ultra-fast In-Place ANSI Cursor Repositioning for dynamic metrics (0 screen flicker)
 # 3. Dynamic metrics updated: Time Badge, Uptime, CPU Usage, GPU Usage, Memory, Battery
 # 4. Dynamic row/column detection - automatically adapts to any terminal height/font/config
-# 5. CPU + Memory history sparklines (16-sample, gradient colored, auto-fit width)
+# 5. CPU + Memory history sparklines (16-sample, gradient colored, own rows below the output)
 
 config_preset="--config $HOME/.config/fastfetch-partial/config.jsonc"
 logo_mode="default"
@@ -32,8 +32,6 @@ tick_delay=1
 spark_chars=(▁ ▂ ▃ ▄ ▅ ▆ ▇ █)
 cpu_hist=()
 mem_hist=()
-spark_col=105
-spark_len=16
 
 # Draw fastfetch directly to terminal (full native colors), then scan a
 # silent second run to discover the exact row/column of every dynamic field.
@@ -117,14 +115,6 @@ redraw_full() {
     fi
     draw_clock "$(date +'%H:%M:%S')"
     tick_delay=0.2
-    cols=$(stty size < /dev/tty 2>/dev/null | awk '{print $2}')
-    [ -z "$cols" ] && cols=120
-    spark_col=$(( value_col + 37 ))
-    spark_len=16
-    avail=$(( cols - spark_col + 1 ))
-    if [ "$avail" -lt "$spark_len" ]; then
-        spark_len=$avail
-    fi
 }
 
 trap 'redraw_full' SIGWINCH
@@ -316,33 +306,11 @@ while true; do
     [ -n "$cpu_core_row" ] && [ "$temp" -gt 0 ] && printf "\033[%d;%dH\033[94m[ %s%s ] %d%% @%sGHz \033[%sm%s°C\033[0m\033[K" "$cpu_core_row" "$value_col" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz" "$temp_color" "$temp"
     [ -n "$cpu_core_row" ] && [ "$temp" -eq 0 ] && printf "\033[%d;%dH\033[94m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$cpu_core_row" "$value_col" "$cpu_bar" "$cpu_ebar" "$cpu_usage" "$cpu_ghz"
 
-    # CPU history sparkline (gradient green/yellow/red by level)
-    if [ "$spark_len" -gt 0 ] && [ "${#cpu_hist[@]}" -gt 0 ]; then
-        printf "\033[%d;%dH" "$cpu_core_row" "$spark_col"
-        off=$(( ${#cpu_hist[@]} - spark_len ))
-        [ "$off" -lt 0 ] && off=0
-        for lv in "${cpu_hist[@]:$off}"; do
-            if [ "$lv" -le 4 ]; then sc="32"; elif [ "$lv" -le 6 ]; then sc="93"; else sc="91"; fi
-            printf "\033[%sm%s\033[0m" "$sc" "${spark_chars[$lv]}"
-        done
-    fi
-
     # GPU Core
     [ -n "$gpu_core_row" ] && printf "\033[%d;%dH\033[95m[ %s%s ] %d%% @%sGHz\033[0m\033[K" "$gpu_core_row" "$value_col" "$gpu_bar" "$gpu_ebar" "$gpu_usage" "$gpu_ghz"
 
     # Memory — gradient bar + bold bright cyan text (matches fastfetch native)
     [ -n "$mem_row" ] && printf "\033[%d;%dH\033[1;36m\033[97m[ %b\033[97m ]\033[m\033[1;36m %s GiB / %s GiB (%d%%)\033[0m\033[K" "$mem_row" "$value_col" "$mem_bar" "$mem_used_gb" "$mem_total_gb" "$mem_pct"
-
-    # Memory history sparkline (gradient green/yellow/red by level)
-    if [ "$spark_len" -gt 0 ] && [ "${#mem_hist[@]}" -gt 0 ]; then
-        printf "\033[%d;%dH" "$mem_row" "$spark_col"
-        off=$(( ${#mem_hist[@]} - spark_len ))
-        [ "$off" -lt 0 ] && off=0
-        for lv in "${mem_hist[@]:$off}"; do
-            if [ "$lv" -le 4 ]; then sc="32"; elif [ "$lv" -le 6 ]; then sc="93"; else sc="91"; fi
-            printf "\033[%sm%s\033[0m" "$sc" "${spark_chars[$lv]}"
-        done
-    fi
 
     # Battery
     [ -n "$bat_row" ] && printf "\033[%d;%dH%b\033[K" "$bat_row" "$value_col" "$bat_str"
@@ -350,5 +318,23 @@ while true; do
     # Network
     [ -n "$net_row" ] && [ -n "$net_iface" ] && printf "\033[%d;%dH\033[93m%s ↓ %s ↑\033[0m\033[K" "$net_row" "$value_col" "$net_rx_str" "$net_tx_str"
 
-    printf "\033[$((total_rows + 1));1H"
+    # History sparklines — own rows below the fastfetch output, aligned with the key column
+    if [ "${#cpu_hist[@]}" -gt 0 ]; then
+        printf "\033[$((total_rows + 1));53H\033[94mCPU \033[0m"
+        for lv in "${cpu_hist[@]}"; do
+            if [ "$lv" -le 4 ]; then sc="32"; elif [ "$lv" -le 6 ]; then sc="93"; else sc="91"; fi
+            printf "\033[%sm%s\033[0m" "$sc" "${spark_chars[$lv]}"
+        done
+        printf "\033[K"
+    fi
+    if [ "${#mem_hist[@]}" -gt 0 ]; then
+        printf "\033[$((total_rows + 2));53H\033[1;36mMEM \033[0m"
+        for lv in "${mem_hist[@]}"; do
+            if [ "$lv" -le 4 ]; then sc="32"; elif [ "$lv" -le 6 ]; then sc="93"; else sc="91"; fi
+            printf "\033[%sm%s\033[0m" "$sc" "${spark_chars[$lv]}"
+        done
+        printf "\033[K"
+    fi
+
+    printf "\033[$((total_rows + 3));1H"
 done

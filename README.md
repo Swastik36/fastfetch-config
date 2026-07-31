@@ -7,7 +7,7 @@ It draws fastfetch once, silently detects the exact row/column of every dynamic 
 ## Features
 
 - Live-updating: time badge, uptime, CPU usage/freq/temp, GPU usage/freq, memory, battery, network speed
-- CPU + memory **history sparklines** (16-sample, gradient colored, auto-fit width)
+- CPU + memory **history sparklines** (16-sample, gradient colored) on their own rows below the output
 - Zero flicker (partial ANSI update, ~2ms/tick)
 - Instant first update (~200ms after boot/resize — no placeholder flash)
 - Auto-adapts to terminal size and config (rows/columns detected at runtime)
@@ -90,7 +90,7 @@ Exit with `Ctrl+C` (restores the cursor and clears the screen). The dashboard re
 
 1. `redraw_full()` draws fastfetch directly to the terminal (full native colors).
 2. `scan_layout()` runs a second, silent fastfetch — with `--pipe false` so TTY-dependent modules are included — and parses the output to find the row/col of the uptime, CPU/GPU Core, memory, network, battery lines and the 🕒 clock badge. `--pipe false` is critical: without it the piped output omits the Terminal Font line and every row below it is off by one.
-3. The update loop samples `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, `sysfs` (CPU freq, GPU freq, battery) and `sensors` every second, then overwrites values at the detected positions with `\033[row;colH` escapes. CPU and memory rows also get a 16-sample history sparkline (`▁▂▃▄▅▆▇█`, green/yellow/red per level) anchored at `value_col + 37`; it shrinks to fit (`-ex` mode) and is skipped on narrow terminals.
+3. The update loop samples `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, `sysfs` (CPU freq, GPU freq, battery) and `sensors` every second, then overwrites values at the detected positions with `\033[row;colH` escapes. CPU and memory history sparklines (`▁▂▃▄▅▆▇█`, green/yellow/red per level) live on their own rows directly below the output.
 4. On SIGWINCH the loop re-runs `redraw_full()` (clear + home first, to avoid cursor drift).
 
 ## Project layout

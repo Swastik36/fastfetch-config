@@ -7,7 +7,7 @@
 - **Initial draw**: `redraw_full()` runs `command fastfetch` directly to terminal (bypasses bash wrapper via `command`)
 - **Layout detection**: `scan_layout()` runs a SECOND piped fastfetch and parses output to find row/col of each dynamic field
 - **Update loop**: Every 1s, overwrites values at detected positions using `\033[row;colH`
-- **Sparklines**: CPU + Memory rows end with a 16-sample history sparkline (▁▂▃▄▅▆▇█), gradient green/yellow/red per level. `spark_col = value_col + 37`; length capped to `cols - spark_col + 1` (ex mode: 11, narrow terminals: skipped)
+- **Sparklines**: CPU + Memory history sparklines (16-sample, gradient green/yellow/red per level) on their OWN rows below the fastfetch output — `CPU` at row `total_rows+1`, `MEM` at `total_rows+2`, aligned to the key column (col 53). Never share a row with values, so no length/width math is needed
 
 ## Key Files
 
