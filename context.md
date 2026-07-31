@@ -7,6 +7,7 @@
 - **Initial draw**: `redraw_full()` runs `command fastfetch` directly to terminal (bypasses bash wrapper via `command`)
 - **Layout detection**: `scan_layout()` runs a SECOND piped fastfetch and parses output to find row/col of each dynamic field
 - **Update loop**: Every 1s, overwrites values at detected positions using `\033[row;colH`
+- **Sparklines**: CPU + Memory rows end with a 16-sample history sparkline (▁▂▃▄▅▆▇█), gradient green/yellow/red per level. `spark_col = value_col + 37`; length capped to `cols - spark_col + 1` (ex mode: 11, narrow terminals: skipped)
 
 ## Key Files
 
@@ -33,6 +34,11 @@ Without `--pipe false`, fastfetch omits TTY-dependent modules (like Terminal Fon
 In GNU coreutils, `seq 1 0` produces NO output (empty), but `printf '█%.0s'` with zero arguments still prints one `█` because printf repeats the format for each argument — zero arguments means the format literal `█` still prints once. This makes 0% bars show 1 filled block (9 chars total) instead of 0 (8 chars). The fix: guard with `[ "$filled" -gt 0 ] &&` to skip the printf entirely when filled is 0. This guard must be applied BOTH in the engine AND inside every config `command` module that draws a bar (CPU/GPU Core, Battery) — the configs are what the initial draw shows for ~1s after each redraw.
 
 Same issue applies to the empty-bar side: `seq 1 8` works fine, but needs guarding for symmetry.
+
+### Negative Array Slice Gotcha (bash 5.2)
+`"${arr[@]: -N}"` returns EMPTY when N is larger than the array size (bash does NOT clamp). The ring-buffer idiom `arr=("${arr[@]: -15}" "$new")` silently drops all history while the array has < 15 elements. Use append + explicit trim instead: `arr+=("$new")` then `[ "${#arr[@]}" -gt 16 ] && arr=("${arr[@]:1}")`. The sparkline render clamps its offset with `off=$(( ${#arr[@]} - spark_len )); [ "$off" -lt 0 ] && off=0`.
+
+Also: perl one-liners matching multibyte spark chars need `-CSD` AND codepoint escapes (`[\x{2581}-\x{2588}]`) — literal UTF-8 chars in `-e` scripts are only decoded with `-Mutf8`.
 
 ### ANSI \033[K Behavior
 `\033[K` clears from cursor to END OF LINE. When the cursor is near the right edge of the terminal and the value text wraps to the next visual line, `\033[K` only clears the current visual line (the wrapped fragment), not the whole logical row. This can leave partial fragments visible on adjacent visual lines.
