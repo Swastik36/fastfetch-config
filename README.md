@@ -8,6 +8,7 @@ It draws fastfetch once, silently detects the exact row/column of every dynamic 
 
 - Live-updating: time badge, uptime, CPU usage/freq/temp, GPU usage/freq, memory, battery, network speed
 - Zero flicker (partial ANSI update, ~2ms/tick)
+- Instant first update (~200ms after boot/resize — no placeholder flash)
 - Auto-adapts to terminal size and config (rows/columns detected at runtime)
 - Two modes: `fastfetch` (cyan "Swazi") and `fastfetch -ex` (magenta "SWAZI")
 - Fully self-contained git repo — clone and it works

@@ -27,6 +27,7 @@ uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row
 clock_row=""; clock_col=17; total_rows=19
 value_col=68
 esc=$(printf '\x1b')
+tick_delay=1
 
 # Draw fastfetch directly to terminal (full native colors), then scan a
 # silent second run to discover the exact row/column of every dynamic field.
@@ -109,6 +110,7 @@ redraw_full() {
         net_tx1=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
     fi
     draw_clock "$(date +'%H:%M:%S')"
+    tick_delay=0.2
 }
 
 trap 'redraw_full' SIGWINCH
@@ -126,7 +128,8 @@ if [ -n "$net_iface" ]; then
 fi
 
 while true; do
-    sleep 1
+    sleep "$tick_delay"
+    tick_delay=1
 
     now=$(date +'%H:%M:%S')
 

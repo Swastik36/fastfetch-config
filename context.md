@@ -105,6 +105,7 @@ The detection order matters — both CPU and GPU Core share the same key `" │ 
 | 11 | Battery AC check uses `grep -m1 .` — handles multiple adapters and both glob patterns without false `[DC!]` | `fastfetch_partial.sh:230` |
 | 12 | Config `command` modules for CPU/GPU Core + Battery are static placeholders (like Network) — engine owns live values; no duplicate sampling, no 50ms sleep in scan_layout | All 3 configs |
 | 13 | `fastfetch_whole.sh` badges made time-invariant (`--:--:--`) — running it can no longer clobber logos with stale timestamps; legacy repo merged into main repo (`legacy/` + `history.bundle`) | `legacy/fastfetch_whole.sh` |
+| 14 | First loop tick after 200ms instead of 1s (`tick_delay`, reset by `redraw_full`) — no 1s placeholder flash at boot or after resize; CPU%/network still real deltas | `fastfetch_partial.sh:129` |
 
 ### Verification passed
 - Both modes run clean (exit 0)
