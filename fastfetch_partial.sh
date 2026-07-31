@@ -227,7 +227,7 @@ while true; do
     done
 
     bat_cap=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo 0)
-    bat_ac=$(cat /sys/class/power_supply/A*/online 2>/dev/null || cat /sys/class/power_supply/ADP*/online 2>/dev/null)
+    bat_ac=$(cat /sys/class/power_supply/A*/online /sys/class/power_supply/ADP*/online 2>/dev/null | grep -m1 .)
     bat_filled=$(( bat_cap * 8 / 100 ))
     bat_empty=$(( 8 - bat_filled ))
     bat_bar=$([ "$bat_filled" -gt 0 ] && printf '█%.0s' $(seq 1 $bat_filled 2>/dev/null) || echo "")

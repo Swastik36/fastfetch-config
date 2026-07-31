@@ -17,8 +17,8 @@
 | `~/.config/fastfetch-partial/logo.txt` | Default logo "Swazi" (tracked in git) |
 | `~/.config/fastfetch-partial/logo_ex.txt` | -ex logo "SWAZI" (tracked in git) |
 | `~/.config/fastfetch-partial/ex.jsonc` | -ex config (tracked in git) |
-| `~/.config/fastfetch/config.jsonc` | Legacy config (NOT in git — only used by bare `fastfetch` / legacy script, engine ignores it) |
-| `~/.config/fastfetch/fastfetch_whole.sh` | Legacy whole-refresh script (deprecated) |
+| `~/.config/fastfetch/config.jsonc` | Legacy config (NOT versioned — only used by bare `fastfetch` / legacy script; mirrored in `legacy/`) |
+| `~/.config/fastfetch/fastfetch_whole.sh` | Legacy whole-refresh script (deprecated, time-invariant; mirrored in `legacy/`) |
 | `~/.config/autostart/Fast fetch.desktop` | Autostart: `kitty --width 120 -e bash -ic "fastfetch"` |
 | `~/.config/kitty/kitty.conf` | Must have `allow_remote_control yes` for resize |
 | `~/.bashrc` | `fastfetch()` wrapper with `resize-os-window` |
@@ -72,7 +72,7 @@ The detection order matters — both CPU and GPU Core share the same key `" │ 
 - Remote: `https://github.com/Swastik36/fastfetch-config.git`
 - Branch: `main`
 - `~/.config/fastfetch-partial/` is fully self-contained and tracked: engine script, both configs, both logos, `context.md`. The engine always passes `--config` from this dir, so a fresh clone works without manual copies.
-- Legacy `~/.config/fastfetch/` is a SEPARATE git repo; the engine no longer reads anything from it (only bare `fastfetch` / `fastfetch_whole.sh` do).
+- Legacy `~/.config/fastfetch/` is NOT versioned anymore (its git repo was merged into this one — see `legacy/`). The engine no longer reads anything from it; only bare `fastfetch` and `fastfetch_whole.sh` use those files. Live copies must be edited manually, then re-mirrored into `legacy/`.
 
 ### Known Gotchas
 - `~` inside double-quoted bash strings does NOT expand — always use `$HOME`
@@ -102,6 +102,9 @@ The detection order matters — both CPU and GPU Core share the same key `" │ 
 | 8 | `context.md` created for future agents | `~/.config/fastfetch-partial/context.md` |
 | 9 | Logo badges now use a `--:--:--` placeholder (time-invariant, all 4 copies identical); `draw_clock()` stamps the real time immediately after every redraw so the placeholder never flashes | logos + `fastfetch_partial.sh:88` |
 | 10 | Network interface re-detected every tick; speed baselines reset when the iface appears or changes (late WiFi at boot / eth switch auto-heal) | `fastfetch_partial.sh:248` |
+| 11 | Battery AC check uses `grep -m1 .` — handles multiple adapters and both glob patterns without false `[DC!]` | `fastfetch_partial.sh:230` |
+| 12 | Config `command` modules for CPU/GPU Core + Battery are static placeholders (like Network) — engine owns live values; no duplicate sampling, no 50ms sleep in scan_layout | All 3 configs |
+| 13 | `fastfetch_whole.sh` badges made time-invariant (`--:--:--`) — running it can no longer clobber logos with stale timestamps; legacy repo merged into main repo (`legacy/` + `history.bundle`) | `legacy/fastfetch_whole.sh` |
 
 ### Verification passed
 - Both modes run clean (exit 0)
