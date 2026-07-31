@@ -100,6 +100,8 @@ The detection order matters — both CPU and GPU Core share the same key `" │ 
 | 6 | kitty.conf: `allow_remote_control yes` | `~/.config/kitty/kitty.conf` |
 | 7 | Autostart: removed invalid `--width 120` (not a kitty flag) | `Fast fetch.desktop` |
 | 8 | `context.md` created for future agents | `~/.config/fastfetch-partial/context.md` |
+| 9 | Logo badges now use a `--:--:--` placeholder (time-invariant, all 4 copies identical); `draw_clock()` stamps the real time immediately after every redraw so the placeholder never flashes | logos + `fastfetch_partial.sh:88` |
+| 10 | Network interface re-detected every tick; speed baselines reset when the iface appears or changes (late WiFi at boot / eth switch auto-heal) | `fastfetch_partial.sh:248` |
 
 ### Verification passed
 - Both modes run clean (exit 0)

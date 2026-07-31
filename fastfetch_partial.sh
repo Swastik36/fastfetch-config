@@ -85,6 +85,16 @@ scan_layout() {
     total_rows=${#lines[@]}
 }
 
+draw_clock() {
+    local t="$1"
+    [ -z "$clock_row" ] && return
+    if [ "$logo_mode" = "ex" ]; then
+        printf "\033[%d;%dH\033[1;35m🕒 [ %s ]\033[0m" "$clock_row" "$clock_col" "$t"
+    else
+        printf "\033[%d;%dH\033[1;36m🕒 [ %s ]\033[0m" "$clock_row" "$clock_col" "$t"
+    fi
+}
+
 redraw_full() {
     printf "\033[H\033[J"
     # Draw directly to the terminal — preserves ALL native fastfetch colors
@@ -95,9 +105,10 @@ redraw_full() {
     # Re-detect active network interface
     net_iface=$(awk 'NR>2 {if ($1 != "lo:" && $2+0 > 0) {gsub(":", "", $1); print $1; exit}}' /proc/net/dev)
     if [ -n "$net_iface" ]; then
-net_rx1=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
-net_tx1=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
+        net_rx1=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
+        net_tx1=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
     fi
+    draw_clock "$(date +'%H:%M:%S')"
 }
 
 trap 'redraw_full' SIGWINCH
@@ -234,6 +245,16 @@ while true; do
         bat_str="\033[38;5;208m[ ${bat_bar}${bat_ebar} ] (${bat_cap}%) [DC!] [${plan_tag}]\033[0m"
     fi
 
+    # Re-detect network interface
+    new_iface=$(awk 'NR>2 {if ($1 != "lo:" && $2+0 > 0) {gsub(":", "", $1); print $1; exit}}' /proc/net/dev)
+    if [ "$new_iface" != "$net_iface" ]; then
+        net_iface=$new_iface
+        if [ -n "$net_iface" ]; then
+            net_rx1=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
+            net_tx1=$(awk -v n="$net_iface" '$1 == n ":" {print $10}' /proc/net/dev)
+        fi
+    fi
+
     # Network speed
     if [ -n "$net_iface" ]; then
         net_rx2=$(awk -v n="$net_iface" '$1 == n ":" {print $2}' /proc/net/dev)
@@ -261,13 +282,7 @@ while true; do
     fi
 
     # Time Badge (dynamically detected row + column)
-    if [ -n "$clock_row" ]; then
-        if [ "$logo_mode" = "ex" ]; then
-            printf "\033[%d;%dH\033[1;35m🕒 [ %s ]\033[0m" "$clock_row" "$clock_col" "$now"
-        else
-            printf "\033[%d;%dH\033[1;36m🕒 [ %s ]\033[0m" "$clock_row" "$clock_col" "$now"
-        fi
-    fi
+    draw_clock "$now"
 
     # Uptime - default color (no yellow), dynamic row + column
     [ -n "$uptime_row" ] && printf "\033[%d;%dH\033[0m%s\033[0m\033[K" "$uptime_row" "$value_col" "$uptime_str"
