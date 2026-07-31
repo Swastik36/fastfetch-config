@@ -6,7 +6,7 @@
 # 2. Ultra-fast In-Place ANSI Cursor Repositioning for dynamic metrics (0 screen flicker)
 # 3. Dynamic metrics updated: Time Badge, Uptime, CPU Usage, GPU Usage, Memory, Battery
 # 4. Dynamic row/column detection - automatically adapts to any terminal height/font/config
-# 5. CPU + Memory history sparklines (16-sample, gradient colored, own rows below the output)
+# 5. CPU + Memory history sparklines (16-sample, gradient colored) as `│ └ Spark` sub-heading rows
 
 config_preset="--config $HOME/.config/fastfetch-partial/config.jsonc"
 logo_mode="default"
@@ -26,6 +26,7 @@ done
 
 uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
 clock_row=""; clock_col=17; total_rows=19
+cpu_spark_row=""; mem_spark_row=""
 value_col=68
 esc=$(printf '\x1b')
 tick_delay=1
@@ -38,6 +39,7 @@ mem_hist=()
 scan_layout() {
     uptime_row=""; cpu_core_row=""; gpu_core_row=""; mem_row=""; bat_row=""; net_row=""
     clock_row=""; clock_col=17; total_rows=19
+    cpu_spark_row=""; mem_spark_row=""
     value_col=68
 
     # Silent capture for row scanning only (not displayed)
@@ -59,6 +61,13 @@ scan_layout() {
                 cpu_core_row=$((i + 1))
             elif [ -z "$gpu_core_row" ]; then
                 gpu_core_row=$((i + 1))
+            fi
+        fi
+        if [[ "$clean" == *"│ └ Spark"* ]]; then
+            if [ -z "$cpu_spark_row" ]; then
+                cpu_spark_row=$((i + 1))
+            elif [ -z "$mem_spark_row" ]; then
+                mem_spark_row=$((i + 1))
             fi
         fi
         if [[ "$clean" == *"├ Memory"* ]]; then
@@ -318,23 +327,23 @@ while true; do
     # Network
     [ -n "$net_row" ] && [ -n "$net_iface" ] && printf "\033[%d;%dH\033[93m%s ↓ %s ↑\033[0m\033[K" "$net_row" "$value_col" "$net_rx_str" "$net_tx_str"
 
-    # History sparklines — own rows below the fastfetch output, aligned with the key column
-    if [ "${#cpu_hist[@]}" -gt 0 ]; then
-        printf "\033[$((total_rows + 1));53H\033[94mCPU \033[0m"
+    # CPU history sparkline (sub-heading row in the tree, gradient green/yellow/red by level)
+    if [ -n "$cpu_spark_row" ] && [ "${#cpu_hist[@]}" -gt 0 ]; then
+        printf "\033[%d;%dH" "$cpu_spark_row" "$value_col"
         for lv in "${cpu_hist[@]}"; do
             if [ "$lv" -le 4 ]; then sc="32"; elif [ "$lv" -le 6 ]; then sc="93"; else sc="91"; fi
             printf "\033[%sm%s\033[0m" "$sc" "${spark_chars[$lv]}"
         done
-        printf "\033[K"
+        printf " %d%%\033[K" "$cpu_usage"
     fi
-    if [ "${#mem_hist[@]}" -gt 0 ]; then
-        printf "\033[$((total_rows + 2));53H\033[1;36mMEM \033[0m"
+    if [ -n "$mem_spark_row" ] && [ "${#mem_hist[@]}" -gt 0 ]; then
+        printf "\033[%d;%dH" "$mem_spark_row" "$value_col"
         for lv in "${mem_hist[@]}"; do
             if [ "$lv" -le 4 ]; then sc="32"; elif [ "$lv" -le 6 ]; then sc="93"; else sc="91"; fi
             printf "\033[%sm%s\033[0m" "$sc" "${spark_chars[$lv]}"
         done
-        printf "\033[K"
+        printf " %d%%\033[K" "$mem_pct"
     fi
 
-    printf "\033[$((total_rows + 3));1H"
+    printf "\033[$((total_rows + 1));1H"
 done

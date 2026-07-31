@@ -7,7 +7,7 @@ It draws fastfetch once, silently detects the exact row/column of every dynamic 
 ## Features
 
 - Live-updating: time badge, uptime, CPU usage/freq/temp, GPU usage/freq, memory, battery, network speed
-- CPU + memory **history sparklines** (16-sample, gradient colored) on their own rows below the output
+- CPU + memory **history sparklines** (16-sample, gradient colored) as `│ └ Spark` sub-headings in the tree, each with a live % suffix
 - Zero flicker (partial ANSI update, ~2ms/tick)
 - Instant first update (~200ms after boot/resize — no placeholder flash)
 - Auto-adapts to terminal size and config (rows/columns detected at runtime)
@@ -90,7 +90,7 @@ Exit with `Ctrl+C` (restores the cursor and clears the screen). The dashboard re
 
 1. `redraw_full()` draws fastfetch directly to the terminal (full native colors).
 2. `scan_layout()` runs a second, silent fastfetch — with `--pipe false` so TTY-dependent modules are included — and parses the output to find the row/col of the uptime, CPU/GPU Core, memory, network, battery lines and the 🕒 clock badge. `--pipe false` is critical: without it the piped output omits the Terminal Font line and every row below it is off by one.
-3. The update loop samples `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, `sysfs` (CPU freq, GPU freq, battery) and `sensors` every second, then overwrites values at the detected positions with `\033[row;colH` escapes. CPU and memory history sparklines (`▁▂▃▄▅▆▇█`, green/yellow/red per level) live on their own rows directly below the output.
+3. The update loop samples `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, `sysfs` (CPU freq, GPU freq, battery) and `sensors` every second, then overwrites values at the detected positions with `\033[row;colH` escapes. CPU and memory history sparklines (`▁▂▃▄▅▆▇█`, green/yellow/red per level) are drawn onto their `│ └ Spark` sub-heading rows in the tree, followed by the live percentage.
 4. On SIGWINCH the loop re-runs `redraw_full()` (clear + home first, to avoid cursor drift).
 
 ## Project layout
@@ -111,6 +111,7 @@ Exit with `Ctrl+C` (restores the cursor and clears the screen). The dashboard re
 - **Logo padding**: `"logo": { "padding": { "top": 8, "right": 3 } }` shifts values right; the engine measures `value_col` dynamically, so only total width matters.
 - **Clock badge**: the logo's last line must contain `🕒 [ --:--:-- ]` — the engine locates the badge from that line. The placeholder is time-invariant; `draw_clock()` stamps the real time right after every redraw.
 - **Bars**: 8 chars at 100% (`█` filled, `░` empty). If you add bar-drawing code, guard `seq` with `[ "$n" -gt 0 ]` — GNU `seq 1 0` prints nothing, but `printf '█%.0s'` with zero args still prints one block.
+- **Sparklines**: the `│ └ Spark` command modules must keep the fixed 16-char `▁` placeholder + `  0%` suffix — the engine overwrites them at the detected rows. Memory moves slowly, so its line is often flat (honest data); the live `%` suffix on the row shows it's updating.
 - **Hardware assumptions** (edit `fastfetch_partial.sh` if they differ): Intel GPU freq via `/sys/class/drm/card*/gt/gt0/rps_*_freq_mhz`, CPU freq via `scaling_cur_freq`, battery via `/sys/class/power_supply/BAT*/capacity`.
 
 ## Troubleshooting

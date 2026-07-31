@@ -93,6 +93,12 @@
       "text": "echo '[ ░░░░░░░░ ] 0% @0.0GHz'"
     },
     {
+      "type": "command",
+      "key": " │ └ Spark ",
+      "keyColor": "bright_blue",
+      "text": "echo '▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  0%'"
+    },
+    {
       "type": "gpu",
       "key": " ├ GPU     ",
       "keyColor": "bright_magenta",
@@ -114,6 +120,12 @@
           "elapsed": "bright_cyan"
         }
       }
+    },
+    {
+      "type": "command",
+      "key": " │ └ Spark ",
+      "keyColor": "bright_cyan",
+      "text": "echo '▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  0%'"
     },
     {
       "type": "disk",
