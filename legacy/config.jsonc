@@ -4,7 +4,7 @@
     "source": "~/.config/fastfetch/logo.txt",
     "padding": {
       "top": 8,
-      "right": 3
+      "right": 2
     }
   },
   "display": {

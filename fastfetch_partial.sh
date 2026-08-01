@@ -30,6 +30,7 @@ cpu_spark_row=""; mem_spark_row=""
 value_col=68
 esc=$(printf '\x1b')
 tick_delay=1
+logo_pad=2
 spark_chars=(▁ ▂ ▃ ▄ ▅ ▆ ▇ █)
 cpu_hist=()
 mem_hist=()
@@ -43,7 +44,7 @@ scan_layout() {
     value_col=68
 
     # Silent capture for row scanning only (not displayed)
-    mapfile -t lines < <(command fastfetch $config_preset --pipe false "${extra_args[@]}" 2>/dev/null)
+    mapfile -t lines < <(command fastfetch $config_preset --pipe false --logo-padding-right "$logo_pad" "${extra_args[@]}" 2>/dev/null)
 
     local sep=" ➜  "
     local col_detected=false
@@ -111,9 +112,14 @@ draw_clock() {
 
 redraw_full() {
     printf "\033[H\033[J"
+    # Adaptive logo padding: fills extra width on wide terminals, shrinks to 0 on narrow ones
+    cols=$(stty size < /dev/tty 2>/dev/null | awk '{print $2}')
+    [ -z "$cols" ] && cols=120
+    logo_pad=$(( cols - 118 ))
+    [ "$logo_pad" -lt 0 ] && logo_pad=0
     # Draw directly to the terminal — preserves ALL native fastfetch colors
     # (keyColor, outputColor, bar colors, command ANSI output)
-    command fastfetch $config_preset "${extra_args[@]}" 2>/dev/null
+    command fastfetch $config_preset --logo-padding-right "$logo_pad" "${extra_args[@]}" 2>/dev/null
     # Then scan a second run to discover row positions
     scan_layout
     # Re-detect active network interface

@@ -11,6 +11,7 @@ It draws fastfetch once, silently detects the exact row/column of every dynamic 
 - Zero flicker (partial ANSI update, ~2ms/tick)
 - Instant first update (~200ms after boot/resize — no placeholder flash)
 - Auto-adapts to terminal size and config (rows/columns detected at runtime)
+- Dynamic logo padding: `max(0, cols − 118)` — fills extra width on wide terminals, shrinks to 0 on narrow ones (120 cols → 2)
 - Two modes: `fastfetch` (cyan "Swazi") and `fastfetch -ex` (magenta "SWAZI")
 - Fully self-contained git repo — clone and it works
 
@@ -108,7 +109,7 @@ Exit with `Ctrl+C` (restores the cursor and clears the screen). The dashboard re
 
 - **Keys**: keep all key strings 11 chars wide (e.g. `" ├ Uptime  "`) so values align.
 - **Separator**: `"display": { "separator": " ➜  " }` in both configs.
-- **Logo padding**: `"logo": { "padding": { "top": 8, "right": 3 } }` shifts values right; the engine measures `value_col` dynamically, so only total width matters.
+- **Logo padding**: `"logo": { "padding": { "top": 8, "right": 2 } }` in the configs is the bare-fastfetch default; the engine overrides it per resize with `--logo-padding-right` (`max(0, cols − 118)`), and `scan_layout` measures `value_col` dynamically, so only total width matters.
 - **Clock badge**: the logo's last line must contain `🕒 [ --:--:-- ]` — the engine locates the badge from that line. The placeholder is time-invariant; `draw_clock()` stamps the real time right after every redraw.
 - **Bars**: 8 chars at 100% (`█` filled, `░` empty). If you add bar-drawing code, guard `seq` with `[ "$n" -gt 0 ]` — GNU `seq 1 0` prints nothing, but `printf '█%.0s'` with zero args still prints one block.
 - **Sparklines**: the `│ └ Spark` command modules must keep the fixed 16-char `▁` placeholder + `  0%` suffix — the engine overwrites them at the detected rows. Memory moves slowly, so its line is often flat (honest data); the live `%` suffix on the row shows it's updating.
