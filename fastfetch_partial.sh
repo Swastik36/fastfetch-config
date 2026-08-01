@@ -31,6 +31,8 @@ value_col=68
 esc=$(printf '\x1b')
 tick_delay=1
 logo_pad=2
+left_pad=0
+max_line_len=0
 spark_chars=(▁ ▂ ▃ ▄ ▅ ▆ ▇ █)
 cpu_hist=()
 mem_hist=()
@@ -42,6 +44,7 @@ scan_layout() {
     clock_row=""; clock_col=17; total_rows=19
     cpu_spark_row=""; mem_spark_row=""
     value_col=68
+    max_line_len=0
 
     # Silent capture for row scanning only (not displayed)
     mapfile -t lines < <(command fastfetch $config_preset --pipe false --logo-padding-right "$logo_pad" "${extra_args[@]}" 2>/dev/null)
@@ -53,6 +56,9 @@ scan_layout() {
         local line="${lines[$i]}"
         local clean
         clean=$(printf "%s" "$line" | sed "s/${esc}\[[0-9;]*[a-zA-Z]//g")
+
+        local len=${#clean}
+        [ "$len" -gt "$max_line_len" ] && max_line_len=$len
 
         if [[ "$clean" == *"├ Uptime"* ]]; then
             uptime_row=$((i + 1))
@@ -112,16 +118,23 @@ draw_clock() {
 
 redraw_full() {
     printf "\033[H\033[J"
-    # Adaptive logo padding: fills extra width on wide terminals, shrinks to 0 on narrow ones
+    # Adaptive logo padding: right gap stays 0..2; extra width goes to equal
+    # left+right margins so the whole block (title, logo, values) stays centered
     cols=$(stty size < /dev/tty 2>/dev/null | awk '{print $2}')
     [ -z "$cols" ] && cols=120
     logo_pad=$(( cols - 118 ))
+    [ "$logo_pad" -gt 2 ] && logo_pad=2
     [ "$logo_pad" -lt 0 ] && logo_pad=0
+    # Scan first (right padding only), then shift the measured columns right by
+    # the centering margin — rows are unaffected by horizontal padding
+    scan_layout
+    left_pad=$(( (cols - max_line_len) / 2 ))
+    [ "$left_pad" -lt 0 ] && left_pad=0
+    value_col=$((value_col + left_pad))
+    clock_col=$((clock_col + left_pad))
     # Draw directly to the terminal — preserves ALL native fastfetch colors
     # (keyColor, outputColor, bar colors, command ANSI output)
-    command fastfetch $config_preset --logo-padding-right "$logo_pad" "${extra_args[@]}" 2>/dev/null
-    # Then scan a second run to discover row positions
-    scan_layout
+    command fastfetch $config_preset --logo-padding-left "$left_pad" --logo-padding-right "$logo_pad" "${extra_args[@]}" 2>/dev/null
     # Re-detect active network interface
     net_iface=$(awk 'NR>2 {if ($1 != "lo:" && $2+0 > 0) {gsub(":", "", $1); print $1; exit}}' /proc/net/dev)
     if [ -n "$net_iface" ]; then

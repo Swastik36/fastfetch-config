@@ -6,7 +6,7 @@
 - **Engine**: `fastfetch_partial.sh` — partial ANSI-cursor update loop (~2ms/tick). Always passes `--config` explicitly (tracked `config.jsonc` or `ex.jsonc`), so the repo is fully self-contained
 - **Initial draw**: `redraw_full()` runs `command fastfetch` directly to terminal (bypasses bash wrapper via `command`)
 - **Layout detection**: `scan_layout()` runs a SECOND piped fastfetch and parses output to find row/col of each dynamic field
-- **Logo padding**: dynamic per terminal width — `logo_pad = max(0, cols - 118)` (120 cols → 2, 140 → 22, narrow → 0), passed as `--logo-padding-right` to BOTH fastfetch invocations in `redraw_full`/`scan_layout` (must match or rows/cols drift). Config files keep `"right": 2` as the bare-fastfetch default
+- **Logo padding / centering**: right gap stays `clamp(cols − 118, 0, 2)`; `scan_layout` measures the max content line length, then `left_pad = max(0, (cols − max_line_len) / 2)` shifts the WHOLE block (title, logo, keys, values — `--logo-padding-left` moves them all, verified) so it stays centered. `value_col`/`clock_col` get `+left_pad` after scanning. Config files keep `"right": 2` as the bare-fastfetch default
 - **Update loop**: Every 1s, overwrites values at detected positions using `\033[row;colH`
 - **Sparklines**: CPU + Memory history sparklines (16-sample, gradient green/yellow/red per level) rendered as `│ └ Spark` sub-heading rows in the tree (config command modules with a `▁▁▁… 0%` placeholder). `scan_layout` matches `"│ └ Spark"` (first = CPU, second = Memory). Chars start at `value_col` (keys are 11 chars like the rest), followed by a live ` %` suffix — the memory % proves the row is updating even when the line is flat (memory moves < 12.5% per tick, so levels quantize to one char)
 
